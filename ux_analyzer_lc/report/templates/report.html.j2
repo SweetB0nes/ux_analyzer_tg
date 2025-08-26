@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ report_title or title or "UX Research Report" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#fff; --fg:#0b1220; --muted:#6b7280; --card:#f7f7f9; --line:#e5e7eb;
+      --accent:#111827; --pill:#f0f2f5;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,"Noto Sans",sans-serif}
+    .wrap{max-width:1000px;margin:36px auto;padding:0 20px}
+    h1{font-size:28px;margin:0 0 8px}
+    h2{font-size:22px;margin:26px 0 12px}
+    h3{font-size:18px;margin:18px 0 8px}
+    .muted{color:var(--muted)}
+    .pill{display:inline-block;background:var(--pill);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 8px 0 0}
+    .kpi{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 6px}
+    .kpi .pill b{font-weight:600}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:10px 0}
+    .grid{display:grid;gap:16px}
+    .g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    ul{margin:8px 0 8px 18px}
+    li{margin:6px 0}
+    blockquote{margin:8px 0;padding:10px 12px;border-left:3px solid var(--line);background:#fbfbfc;border-radius:8px}
+    .small{font-size:13px}
+    .tag{display:inline-block;padding:2px 8px;background:#eef2ff;border:1px solid #e5e7eb;border-radius:999px;margin-right:6px;font-size:12px}
+    .hr{height:1px;background:var(--line);margin:20px 0}
+    .mb-0{margin-bottom:0}
+    .empty{color:var(--muted);font-style:italic}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <h1>{{ report_title or title or "UX Research Report" }}</h1>
+  <div class="muted small">
+    Компания: <b>{{ company_name or "—" }}</b> · Автор: <b>{{ author or "—" }}</b> · Дата: <b>{{ date or "" }}</b>
+  </div>
+
+  {# ------- верхние сводные метрики ------- #}
+  {% set interviews_list = interviews or [] %}
+  {% set cross_obj = cross or {} %}
+  {% set agg = cross_obj.get('aggregates') or {} %}
+  {% set avg_sent = (agg.get('sentiments') or []) %}
+  {% set avg_sentiment = (avg_sent|length and (avg_sent|sum / (avg_sent|length))) or 0.0 %}
+
+  <div class="kpi">
+    <div class="pill"><b>Интервью:</b> {{ interviews_list|length }}</div>
+    <div class="pill"><b>Средний сентимент:</b> {{ "%.3f"|format(avg_sentiment) }}</div>
+  </div>
+
+  {# ------- Executive summary / финальные выводы ------- #}
+  {% set final_obj = final or {} %}
+  {% set findings = final_obj.get('final_findings') or {} %}
+  {% set exec_summary = findings.get('executive_summary') or "—" %}
+
+  <h2>Executive Summary</h2>
+  <div class="card">{{ exec_summary }}</div>
+
+  {# ------- Ответы на бриф ------- #}
+  {% set brief_answers = final_obj.get('brief_answers') or {} %}
+  {% set answers = brief_answers.get('answers') or [] %}
+  <h2>Ответы на бриф</h2>
+  <div class="card">
+    {% if answers %}
+      <ul>
+        {% for a in answers %}
+          <li>
+            <b>{{ a.get('question') or '—' }}</b>: {{ a.get('answer') or '—' }}
+            {% set qs = a.get('evidence_quotes') or [] %}
+            {% if qs %}
+              <div class="small muted">Цитаты:</div>
+              {% for q in qs %}
+                <blockquote class="small">“{{ q.get('text') or '' }}”</blockquote>
+              {% endfor %}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  {# ------- Достижение целей ------- #}
+  {% set goal_ach = final_obj.get('goal_achievement') or {} %}
+  {% set goals = goal_ach.get('goals') or [] %}
+  <h2>Оценка достижения целей</h2>
+  <div class="card">
+    {% if goals %}
+      <ul>
+        {% for g in goals %}
+          <li>
+            <b>{{ g.get('goal') or '—' }}</b> —
+            статус: <b>{{ g.get('status') or '—' }}</b>,
+            уверенность: {{ "%.2f"|format(g.get('confidence') or 0) }}.
+            <div class="small">{{ g.get('rationale') or '' }}</div>
+            {% if g.get('required_actions') %}
+              <div class="small muted">Действия: {{ (g.get('required_actions') or [])|join(", ") }}</div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  {# ------- Сегменты и персоны (из cross) ------- #}
+  {% set cross_data = cross_obj.get('cross') or {} %}
+  {% set segmentation = cross_data.get('segmentation') or {} %}
+  {% set segments = segmentation.get('segments') or [] %}
+  {% set personas = cross_data.get('personas') or {} %}
+  {% set personas_list = personas.get('personas') or personas.get('items') or [] %}
+
+  <h2>Сегменты и персоны</h2>
+  <div class="grid g-2">
+    <div class="card">
+      <h3 class="mb-0">Сегменты</h3>
+      {% if segments %}
+        <ul>
+          {% for s in segments %}
+            <li>
+              <b>{{ s.get('name') or '—' }}</b>
+              {% if s.get('size_hint') %}<span class="tag">{{ s.get('size_hint') }}</span>{% endif %}
+              <div class="small muted">{{ s.get('criteria') or '' }}</div>
+              {% if s.get('key_pains') %}
+                <div class="small"><b>Боли:</b> {{ (s.get('key_pains') or [])|join("; ") }}</div>
+              {% endif %}
+              {% if s.get('key_needs') %}
+                <div class="small"><b>Нужды:</b> {{ (s.get('key_needs') or [])|join("; ") }}</div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">Нет данных</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3 class="mb-0">Персоны</h3>
+      {% if personas_list %}
+        <ul>
+          {% for p in personas_list %}
+            <li>
+              <b>{{ p.get('name') or '—' }}</b>
+              {% if p.get('segment') %}<span class="tag">{{ p.get('segment') }}</span>{% endif %}
+              {% if p.get('goals') %}
+                <div class="small"><b>Цели:</b> {{ (p.get('goals') or [])|join("; ") }}</div>
+              {% endif %}
+              {% if p.get('blockers') %}
+                <div class="small"><b>Блокеры:</b> {{ (p.get('blockers') or [])|join("; ") }}</div>
+              {% endif %}
+              {% if p.get('quotes') %}
+                {% for q in p.get('quotes') %}
+                  <blockquote class="small">“{{ q.get('text') or '' }}”</blockquote>
+                {% endfor %}
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty">Нет данных</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------- Инсайты и цитаты — по интервью ------- #}
+  <h2>Инсайты и цитаты</h2>
+
+  {% for iv in interviews_list %}
+    {% set sums  = iv.get('summaries') or {} %}
+    {% set pat   = sums.get('profile_and_themes') or {} %}
+
+    <div class="card">
+      <h3>Интервью: {{ iv.get('interview_id') or loop.index }}</h3>
+
+      {# Темы #}
+      {% set themes = (sums.get('themes') or pat.get('key_themes') or []) %}
+      {% if themes %}
+        <h4>Темы</h4>
+        <ul>
+          {% for t in themes %}
+            <li><b>{{ t.get('title') or '—' }}</b> — {{ t.get('description') or '' }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {# Боли и нужды #}
+      {% set pains = sums.get('pains') or [] %}
+      {% set needs = sums.get('needs') or [] %}
+      {% if pains or needs %}
+        <div class="grid g-2">
+          <div>
+            <h4>Боли</h4>
+            {% if pains %}
+              <ul>
+                {% for p in pains %}
+                  <li>
+                    <b>{{ p.get('label') or p.get('title') or '—' }}</b> — {{ p.get('description') or p.get('details') or '' }}
+                    {% if p.get('priority') %}<span class="tag">{{ p.get('priority') }}</span>{% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+          <div>
+            <h4>Нужды</h4>
+            {% if needs %}
+              <ul>
+                {% for n in needs %}
+                  <li>
+                    <b>{{ n.get('label') or n.get('title') or '—' }}</b> — {{ n.get('description') or n.get('details') or '' }}
+                    {% if n.get('priority') %}<span class="tag">{{ n.get('priority') }}</span>{% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {# Эмоции и инсайты #}
+      {% set emotions = sums.get('emotions') or [] %}
+      {% set insights = sums.get('insights') or [] %}
+      {% if emotions or insights %}
+        <div class="hr"></div>
+        <div class="grid g-2">
+          <div>
+            <h4>Эмоции</h4>
+            {% if emotions %}
+              <ul>
+                {% for e in emotions %}
+                  {% if e is string %}
+                    <li>{{ e }}</li>
+                  {% else %}
+                    <li><b>{{ e.get('trigger') or '—' }}</b> — {{ e.get('intensity') or '' }}</li>
+                  {% endif %}
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+          <div>
+            <h4>Инсайты</h4>
+            {% if insights %}
+              <ul>
+                {% for ins in insights %}
+                  <li><b>{{ ins.get('title') or ins.get('statement') or '—' }}</b> — {{ ins.get('rationale') or '' }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {# Цитаты и противоречия #}
+      {% set quotes = (sums.get('quotes') or pat.get('quotes') or []) %}
+      {% set contradictions = sums.get('contradictions') or [] %}
+      {% if quotes or contradictions %}
+        <div class="hr"></div>
+        <div class="grid g-2">
+          <div>
+            <h4>Цитаты</h4>
+            {% if quotes %}
+              {% for q in quotes %}
+                {% set qt = (q.get('text') if q is mapping else (q or '')) %}
+                {% if qt %}
+                  <blockquote>“{{ qt }}”</blockquote>
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+          <div>
+            <h4>Противоречия</h4>
+            {% if contradictions %}
+              <ul>
+                {% for c in contradictions %}
+                  <li>{{ c }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="empty">Нет данных</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {# ------- Бизнес-аспекты ------- #}
+  {% set opportunities = agg.get('opportunities') or [] %}
+  {% set metric_links = agg.get('metric_links') or [] %}
+  <h2>Бизнес-аспекты</h2>
+  <div class="card">
+    <div class="grid g-2">
+      <div>
+        <h4>Возможности</h4>
+        {% if opportunities %}
+          <ul>
+            {% for o in opportunities %}
+              <li><b>{{ o.get('title') or '—' }}</b> — {{ o.get('details') or '' }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="empty">Нет данных</div>
+        {% endif %}
+      </div>
+      <div>
+        <h4>Связанные метрики</h4>
+        {% if metric_links %}
+          <div>
+            {% for m in metric_links %}<span class="tag">{{ m }}</span>{% endfor %}
+          </div>
+        {% else %}
+          <div class="empty">Нет данных</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ------- Кросс-анализ ------- #}
+  {% set cross_analysis = cross_data.get('cross_analysis') or {} %}
+  {% set patterns = cross_data.get('patterns') or {} %}
+  <h2>Кросс-анализ</h2>
+  <div class="card">
+    {% set pats = patterns.get('behavioral_patterns') or patterns.get('patterns') or [] %}
+    {% if pats %}
+      <h4>Поведенческие паттерны</h4>
+      <ul>
+        {% for p in pats %}<li>{{ p }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+    {% if cross_analysis %}
+      {% if cross_analysis.get('frequencies') %}
+        <h4>Частоты</h4>
+        <ul>
+          {% for k,v in (cross_analysis.get('frequencies') or {}).items() %}
+            <li>{{ k }} — {{ v }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if cross_analysis.get('risks') %}
+        <h4>Риски</h4>
+        <ul>
+          {% for r in cross_analysis.get('risks') %}<li>{{ r }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    {% endif %}
+    {% if not (pats or cross_analysis) %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  {# ------- Рекомендации ------- #}
+  {% set recs = final_obj.get('recommendations') or {} %}
+  {% set rec_list = recs.get('recommendations') or recs.get('items') or [] %}
+  <h2>Рекомендации</h2>
+  <div class="card">
+    {% if rec_list %}
+      <ul>
+        {% for r in rec_list %}
+          <li>
+            <b>{{ r.get('title') or '—' }}</b>
+            {% if r.get('category') %}<span class="tag">{{ r.get('category') }}</span>{% endif %}
+            <div class="small">{{ r.get('rationale') or '' }}</div>
+            <div class="small muted">
+              {% if r.get('effort') %}Эффорт: {{ r.get('effort') }} · {% endif %}
+              {% if r.get('impact') %}Импакт: {{ r.get('impact') }}{% endif %}
+            </div>
+            {% if r.get('success_metrics') %}
+              <div class="small muted">Метрики успеха: {{ (r.get('success_metrics') or [])|join(", ") }}</div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  {# ------- Материалы для защиты ------- #}
+  {% set defense = final_obj.get('defense_materials') or {} %}
+  <h2>Материалы для защиты</h2>
+  <div class="card">
+    {% set kf = defense.get('key_findings') or [] %}
+    {% if kf %}<h4>Key findings</h4><ul>{% for x in kf %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+
+    {% set cr = defense.get('critical_risks') or [] %}
+    {% if cr %}<h4>Критические риски</h4><ul>{% for x in cr %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+
+    {% set asmp = defense.get('assumptions') or [] %}
+    {% if asmp %}<h4>Предположения</h4><ul>{% for x in asmp %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+
+    {% set steps = defense.get('next_steps') or [] %}
+    {% if steps %}<h4>Следующие шаги</h4><ul>{% for x in steps %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+
+    {% set crit = defense.get('decision_criteria') or [] %}
+    {% if crit %}<h4>Критерии принятия решения</h4><ul>{% for x in crit %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+
+    {% set track = defense.get('tracking_metrics') or [] %}
+    {% if track %}<h4>Метрики для трекинга</h4><div>{% for m in track %}<span class="tag">{{ m }}</span>{% endfor %}</div>{% endif %}
+
+    {% if not (kf or cr or asmp or steps or crit or track) %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  {# ------- Источники / Приложение ------- #}
+  <h2>Приложения</h2>
+  <div class="card small">
+    <b>Список интервью:</b>
+    {% if interviews_list %}
+      <ul class="small">
+        {% for iv in interviews_list %}
+          <li>ID: {{ iv.get('interview_id') or loop.index }} · сентимент: {{ "%.3f"|format(iv.get('sentiment') or 0) }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">Нет данных</div>
+    {% endif %}
+  </div>
+
+  <div class="muted small" style="margin-top:26px">
+    Отчёт сгенерирован автоматически на основе LLM-анализа. Проверьте ключевые выводы перед распространением.
+  </div>
+
+</div>
+</body>
+</html>
